@@ -72,6 +72,12 @@ dependencies {
     // а робити самі запити треба нашим власним "Downloader" на базі OkHttp.
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
+    // ExoPlayer (Media3) - офіційний плеєр Google, правильно обробляє
+    // потокове аудіо з усіма заголовками/форматами. Саме те, чого не
+    // вистачало нестабільному ft.Audio у Flet-версії.
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-common:1.4.1")
+
     // Для запуску пошуку у фоновому потоці, не блокуючи інтерфейс
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }

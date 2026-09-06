@@ -1,7 +1,5 @@
 package com.musicdownloader.app
 
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -42,6 +41,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -49,6 +49,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.launch
 
 private val DeepOrange = Color(0xFFFF5722)
@@ -83,6 +86,28 @@ fun SearchScreen() {
     val results = remember { mutableStateListOf<SearchResult>() }
     val selected = remember { mutableStateListOf<Boolean>() }
 
+    var currentlyPlayingIndex by remember { mutableStateOf(-1) }
+    var isBuffering by remember { mutableStateOf(false) }
+
+    // Один спільний ExoPlayer на весь екран - переінакшуємо джерело
+    // при кожному новому натисканні "▶", а не створюємо новий програвач
+    // щоразу.
+    val player = remember {
+        ExoPlayer.Builder(context).build().apply {
+            addListener(object : Player.Listener {
+                override fun onPlaybackStateChanged(state: Int) {
+                    if (state == Player.STATE_ENDED) {
+                        currentlyPlayingIndex = -1
+                    }
+                }
+            })
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { player.release() }
+    }
+
     fun runSearch() {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) {
@@ -91,6 +116,8 @@ fun SearchScreen() {
         }
         isSearching = true
         statusText = "Пошук: $trimmed..."
+        player.stop()
+        currentlyPlayingIndex = -1
         results.clear()
         selected.clear()
 
@@ -112,12 +139,38 @@ fun SearchScreen() {
         }
     }
 
-    fun openPreview(url: String) {
-        // Так само, як у попередній (Flet) версії - поки що відкриваємо
-        // відео в YouTube/браузері. Реальний вбудований плеєр (ExoPlayer)
-        // додамо в наступній фазі.
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        context.startActivity(intent)
+    fun togglePreview(index: Int, item: SearchResult) {
+        if (currentlyPlayingIndex == index) {
+            // Повторне натискання на той самий трек - зупиняємо.
+            player.stop()
+            currentlyPlayingIndex = -1
+            return
+        }
+
+        player.stop()
+        currentlyPlayingIndex = index
+        isBuffering = true
+
+        scope.launch {
+            try {
+                val audioStream = MusicRepository.getBestAudioStream(item.url)
+                val streamUrl = audioStream?.content
+
+                if (streamUrl == null) {
+                    statusText = "Не вдалося отримати аудіо для прослуховування."
+                    currentlyPlayingIndex = -1
+                } else {
+                    player.setMediaItem(MediaItem.fromUri(streamUrl))
+                    player.prepare()
+                    player.play()
+                }
+            } catch (e: Exception) {
+                statusText = "Помилка відтворення: ${e.message}"
+                currentlyPlayingIndex = -1
+            } finally {
+                isBuffering = false
+            }
+        }
     }
 
     Column(
@@ -153,7 +206,8 @@ fun SearchScreen() {
                 OutlinedButton(
                     onClick = { limitMenuExpanded = true },
                     enabled = !isSearching,
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.height(56.dp)
                 ) {
                     Text("$limit")
                 }
@@ -233,8 +287,19 @@ fun SearchScreen() {
                             // ширини - той самий урок з Flet-версії, щоб
                             // вона не накладалась на текст назви.
                             Box(modifier = Modifier.width(48.dp)) {
-                                IconButton(onClick = { openPreview(item.url) }) {
-                                    Icon(Icons.Filled.PlayArrow, contentDescription = "Відкрити на YouTube")
+                                if (isBuffering && currentlyPlayingIndex == index) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier
+                                            .width(24.dp)
+                                            .height(24.dp)
+                                    )
+                                } else {
+                                    IconButton(onClick = { togglePreview(index, item) }) {
+                                        Icon(
+                                            if (currentlyPlayingIndex == index) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                                            contentDescription = "Прослухати"
+                                        )
+                                    }
                                 }
                             }
                         }
