@@ -57,8 +57,21 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.2")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    // NewPipeExtractor - дістає дані з YouTube (пошук, посилання на аудіо-
+    // потоки) без офіційного API, так само як робить застосунок NewPipe.
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.24.4")
+
+    // NewPipeExtractor сам не робить HTTP-запити - він лише парсить дані,
+    // а робити самі запити треба нашим власним "Downloader" на базі OkHttp.
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Для запуску пошуку у фоновому потоці, не блокуючи інтерфейс
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }

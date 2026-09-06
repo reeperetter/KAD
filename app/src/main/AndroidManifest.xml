@@ -13,6 +13,17 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
+    <!-- Потрібно на Android 11+, щоб застосунок мав право відкривати
+         посилання (для кнопки "Відкрити на YouTube") - без цього система
+         може приховати браузер від запиту через обмеження видимості
+         пакетів. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
