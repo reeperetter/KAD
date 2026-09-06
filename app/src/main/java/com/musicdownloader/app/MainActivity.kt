@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PlayArrow
@@ -142,6 +143,7 @@ fun SearchScreen() {
                 label = { Text("Назва пісні або виконавця") },
                 singleLine = true,
                 enabled = !isSearching,
+                shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.weight(1f)
             )
 
@@ -150,7 +152,8 @@ fun SearchScreen() {
             Box {
                 OutlinedButton(
                     onClick = { limitMenuExpanded = true },
-                    enabled = !isSearching
+                    enabled = !isSearching,
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Text("$limit")
                 }
@@ -158,7 +161,7 @@ fun SearchScreen() {
                     expanded = limitMenuExpanded,
                     onDismissRequest = { limitMenuExpanded = false }
                 ) {
-                    listOf(10, 15, 20).forEach { option ->
+                    listOf(10, 25, 100, 500).forEach { option ->
                         DropdownMenuItem(
                             text = { Text("$option") },
                             onClick = {
