@@ -56,6 +56,7 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 private val DeepOrange = Color(0xFFFF5722)
 private val WarmBackground = Color(0xFFFFF3E0)
@@ -170,16 +171,23 @@ fun SearchScreen() {
         player.stop()
         currentlyPlayingIndex = index
         isBuffering = true
+        statusText = "Отримую аудіо-потік для: ${item.title}..."
 
         scope.launch {
             try {
-                val audioStream = MusicRepository.getBestAudioStream(item.url)
+                // Таймаут - якщо мережевий запит "зависне" назавжди, ми
+                // побачимо про це чесне повідомлення замість вічного
+                // індикатора завантаження без жодної реакції.
+                val audioStream = withTimeout(15000) {
+                    MusicRepository.getBestAudioStream(item.url)
+                }
                 val streamUrl = audioStream?.content
 
                 if (streamUrl == null) {
-                    statusText = "Не вдалося отримати аудіо для прослуховування."
+                    statusText = "Не вдалося отримати аудіо для прослуховування (порожній потік)."
                     currentlyPlayingIndex = -1
                 } else {
+                    statusText = "Відтворюю (${audioStream.format?.name ?: "?"}, ${audioStream.averageBitrate} kbps)..."
                     val mediaSource = ProgressiveMediaSource.Factory(dataSourceFactory)
                         .createMediaSource(MediaItem.fromUri(streamUrl))
                     player.setMediaSource(mediaSource)
@@ -187,7 +195,7 @@ fun SearchScreen() {
                     player.play()
                 }
             } catch (e: Exception) {
-                statusText = "Помилка відтворення: ${e.message}"
+                statusText = "Помилка відтворення: ${e::class.simpleName}: ${e.message}"
                 currentlyPlayingIndex = -1
             } finally {
                 isBuffering = false
@@ -225,7 +233,9 @@ fun SearchScreen() {
                 singleLine = true,
                 enabled = !isSearching,
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp)
             )
 
             Spacer(width = 8.dp)
