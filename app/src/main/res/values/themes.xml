@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Основна тема застосунку - тепла гама -->
+    <style name="Theme.MusicDownloader" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorBackground">@color/warm_background</item>
+        <item name="android:statusBarColor">@color/deep_orange</item>
+    </style>
+
+    <!-- Тема, що показується на екрані завантаження (поки Compose ще не
+         намалював перший кадр) - дуже темний, майже чорний, синій. -->
+    <style name="Theme.MusicDownloader.Splash" parent="Theme.MusicDownloader">
+        <item name="android:windowBackground">@color/splash_dark_navy</item>
+        <item name="android:statusBarColor">@color/splash_dark_navy</item>
+    </style>
+</resources>

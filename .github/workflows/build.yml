@@ -1,0 +1,44 @@
+name: Build Android APK (Kotlin)
+
+on:
+    push:
+        branches: [main, master]
+    workflow_dispatch:
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Set up Java 17
+              uses: actions/setup-java@v4
+              with:
+                  distribution: "temurin"
+                  java-version: "17"
+
+            # Встановлює Android SDK (cmdline-tools, platform-tools,
+            # потрібні platforms/build-tools) - це те, що зазвичай робить
+            # Android Studio при першому запуску, тут робимо те саме без неї.
+            - name: Set up Android SDK
+              uses: android-actions/setup-android@v3
+
+            - name: Set up Gradle
+              uses: gradle/actions/setup-gradle@v4
+
+            # Поки що збираємо debug-версію - вона автоматично підписується
+            # стандартним відлагоджувальним ключем Android (генерується
+            # автоматично, жодних секретів/keystore не потрібно). Коли
+            # будете готові до релізного підпису - повернемось до кроків
+            # з ANDROID_SIGNING_KEY і командою assembleRelease.
+            - name: Build debug APK
+              run: gradle assembleDebug --stacktrace
+
+            - name: Upload APK Artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: app-debug
+                  path: app/build/outputs/apk/debug/*.apk
+
