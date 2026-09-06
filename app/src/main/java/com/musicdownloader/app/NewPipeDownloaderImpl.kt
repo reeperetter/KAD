@@ -29,6 +29,15 @@ class NewPipeDownloaderImpl(private val client: OkHttpClient) : Downloader() {
             }
         }
 
+        // Якщо сам запит не задав власний User-Agent - підставляємо наш
+        // спільний (той самий, яким потім ExoPlayer буде запитувати сам
+        // аудіо-потік, див. NetworkConstants.kt). Без явного узгодження
+        // цих двох клієнтів сервери YouTube можуть мовчки відхиляти запит
+        // на відтворення.
+        if (headers.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
+            builder.addHeader("User-Agent", NETWORK_USER_AGENT)
+        }
+
         if (dataToSend != null) {
             builder.method(httpMethod, dataToSend.toRequestBody())
         } else {

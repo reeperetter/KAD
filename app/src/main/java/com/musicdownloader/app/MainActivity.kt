@@ -50,8 +50,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import kotlinx.coroutines.launch
 
 private val DeepOrange = Color(0xFFFF5722)
@@ -100,8 +103,25 @@ fun SearchScreen() {
                         currentlyPlayingIndex = -1
                     }
                 }
+
+                // Раніше помилки плеєра ніде не оброблялись - якщо
+                // відтворення падало (наприклад, через мережеву помилку),
+                // застосунок мовчки "зависав" на іконці ⏹, нічого не
+                // показуючи. Тепер про це буде видно в статусі.
+                override fun onPlayerError(error: PlaybackException) {
+                    statusText = "Помилка відтворення: ${error.errorCodeName}"
+                    currentlyPlayingIndex = -1
+                    isBuffering = false
+                }
             })
         }
+    }
+
+    // Власний DataSource з тим самим User-Agent, що й у NewPipeDownloaderImpl -
+    // без цього узгодження сервери YouTube нерідко мовчки відхиляють запит
+    // на відтворення потоку.
+    val dataSourceFactory = remember {
+        DefaultHttpDataSource.Factory().setUserAgent(NETWORK_USER_AGENT)
     }
 
     DisposableEffect(Unit) {
@@ -160,7 +180,9 @@ fun SearchScreen() {
                     statusText = "Не вдалося отримати аудіо для прослуховування."
                     currentlyPlayingIndex = -1
                 } else {
-                    player.setMediaItem(MediaItem.fromUri(streamUrl))
+                    val mediaSource = ProgressiveMediaSource.Factory(dataSourceFactory)
+                        .createMediaSource(MediaItem.fromUri(streamUrl))
+                    player.setMediaSource(mediaSource)
                     player.prepare()
                     player.play()
                 }
@@ -193,7 +215,13 @@ fun SearchScreen() {
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                label = { Text("Назва пісні або виконавця") },
+                label = {
+                    Text(
+                        "Назва пісні або виконавця",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 singleLine = true,
                 enabled = !isSearching,
                 shape = RoundedCornerShape(8.dp),
