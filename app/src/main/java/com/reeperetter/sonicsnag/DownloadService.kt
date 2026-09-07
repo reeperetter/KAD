@@ -3,6 +3,7 @@ package com.reeperetter.sonicsnag
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -12,10 +13,12 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -31,6 +34,7 @@ class DownloadService : Service() {
     companion object {
         private const val CHANNEL_ID = "sonicsnag_downloads"
         private const val NOTIFICATION_ID = 1001
+        private const val ACTION_CANCEL = "com.reeperetter.sonicsnag.action.CANCEL_DOWNLOAD"
 
         // Стан, який MainActivity читає, поки застосунок видимий - сервіс
         // працює незалежно від того, дивиться хтось на екран чи ні.
@@ -46,6 +50,14 @@ class DownloadService : Service() {
             val intent = Intent(context, DownloadService::class.java)
             ContextCompat.startForegroundService(context, intent)
         }
+
+        /** Надсилає сервісу команду негайно зупинити завантаження. */
+        fun cancel(context: Context) {
+            val intent = Intent(context, DownloadService::class.java).apply {
+                action = ACTION_CANCEL
+            }
+            context.startService(intent)
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -56,6 +68,15 @@ class DownloadService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_CANCEL) {
+            serviceScope.coroutineContext[Job]?.cancel()
+            isRunningFlow.value = false
+            statusFlow.value = "Завантаження скасовано."
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         val tracks = pendingTracks
         if (tracks.isEmpty()) {
             stopSelf()
@@ -69,7 +90,13 @@ class DownloadService : Service() {
             var successCount = 0
             val failures = mutableListOf<String>()
 
-            tracks.forEachIndexed { i, item ->
+            for ((i, item) in tracks.withIndex()) {
+                // Перевіряємо скасування на початку кожного треку - навіть
+                // якщо скасування прийшло під час завантаження чи
+                // конвертації поточного треку, він встигне завершитись, а
+                // наступний уже не почнеться.
+                if (!isActive) return@launch
+
                 val progressPrefix = "Трек ${i + 1}/${tracks.size}: ${item.title}"
                 statusFlow.value = progressPrefix
                 notify(buildNotification(progressPrefix, i, tracks.size))
@@ -119,6 +146,13 @@ class DownloadService : Service() {
         }
     }
 
+    private fun cancelPendingIntent(): PendingIntent {
+        val intent = Intent(this, DownloadService::class.java).apply { action = ACTION_CANCEL }
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+            (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+        return PendingIntent.getService(this, 0, intent, flags)
+    }
+
     private fun buildNotification(text: String, progress: Int, max: Int): Notification =
         NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("SonicSnag")
@@ -127,6 +161,7 @@ class DownloadService : Service() {
             .setProgress(max, progress, false)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .addAction(0, "Скасувати", cancelPendingIntent())
             .build()
 
     private fun buildFinalNotification(text: String): Notification =

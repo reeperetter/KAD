@@ -420,16 +420,23 @@ fun SearchScreen() {
         }
 
         Button(
-            onClick = { startDownload() },
-            enabled = selected.any { it } && !isBusy,
+            onClick = {
+                if (isDownloading) DownloadService.cancel(context) else startDownload()
+            },
+            enabled = isDownloading || (selected.any { it } && !isBusy),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp)
                 .height(56.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = DeepOrange)
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isDownloading) Color.Gray else DeepOrange
+            )
         ) {
-            Icon(Icons.Filled.Download, contentDescription = null)
-            Text("  Завантажити обране", color = Color.White)
+            Icon(if (isDownloading) Icons.Filled.Stop else Icons.Filled.Download, contentDescription = null)
+            Text(
+                if (isDownloading) "  Скасувати завантаження" else "  Завантажити обране",
+                color = Color.White
+            )
         }
 
         Divider(modifier = Modifier.padding(vertical = 8.dp))
