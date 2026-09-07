@@ -223,7 +223,7 @@ fun SearchScreen() {
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                label = {
+                placeholder = {
                     Text(
                         "Назва пісні або виконавця",
                         maxLines = 1,

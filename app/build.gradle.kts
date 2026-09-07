@@ -37,6 +37,10 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // NewPipeExtractor вимагає core library desugaring для minSdk
+        // нижче 33 (ми тримаємо minSdk = 24 заради ширшої сумісності
+        // пристроїв) - без цього можливі краші на новіших Java API.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -66,7 +70,11 @@ dependencies {
 
     // NewPipeExtractor - дістає дані з YouTube (пошук, посилання на аудіо-
     // потоки) без офіційного API, так само як робить застосунок NewPipe.
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.24.4")
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.4")
+
+    // Потрібен саме через NewPipeExtractor (вимога desugaring для
+    // minSdk < 33 - див. compileOptions вище).
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.3")
 
     // NewPipeExtractor сам не робить HTTP-запити - він лише парсить дані,
     // а робити самі запити треба нашим власним "Downloader" на базі OkHttp.
