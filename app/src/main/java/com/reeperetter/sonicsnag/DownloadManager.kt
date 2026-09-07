@@ -28,6 +28,68 @@ object DownloadManager {
     private fun sanitizeFileName(name: String): String =
         name.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim().take(150).ifBlank { "track" }
 
+    // Розмір одного "шматка" при завантаженні частинами. YouTube нерідко
+    // штучно обмежує швидкість (throttling) для одного суцільного запиту
+    // без Range-заголовків - реальні застосунки й завантажувачі якраз
+    // тому й тягнуть файл частинами. 10 МБ - розумний баланс між
+    // кількістю запитів і уникненням троттлінгу.
+    private const val CHUNK_SIZE = 10L * 1024 * 1024
+
+    /**
+     * Завантажує файл частинами через Range-запити замість одного суцільного
+     * GET. Без цього YouTube нерідко обмежує швидкість до приблизно
+     * реальної швидкості відтворення - тобто трихвилинна пісня якісно
+     * скачається саме близько трьох хвилин, а не за кілька секунд.
+     */
+    private fun downloadInChunks(url: String, outputFile: File): Boolean {
+        val headRequest = Request.Builder()
+            .url(url)
+            .header("User-Agent", NETWORK_USER_AGENT)
+            .head()
+            .build()
+
+        val totalSize = client.newCall(headRequest).execute().use { response ->
+            if (!response.isSuccessful) return@use -1L
+            response.header("Content-Length")?.toLongOrNull() ?: -1L
+        }
+
+        outputFile.outputStream().use { output ->
+            if (totalSize <= 0) {
+                // Сервер не повідомив розмір - завантажуємо звичайним
+                // способом (рідкісний випадок).
+                val request = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", NETWORK_USER_AGENT)
+                    .build()
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) return false
+                    val body = response.body ?: return false
+                    body.byteStream().copyTo(output)
+                }
+                return true
+            }
+
+            var start = 0L
+            while (start < totalSize) {
+                val end = minOf(start + CHUNK_SIZE - 1, totalSize - 1)
+                val rangeRequest = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", NETWORK_USER_AGENT)
+                    .header("Range", "bytes=$start-$end")
+                    .build()
+
+                client.newCall(rangeRequest).execute().use { response ->
+                    // 206 Partial Content - очікувана відповідь на Range-запит
+                    if (!response.isSuccessful) return false
+                    val body = response.body ?: return false
+                    body.byteStream().copyTo(output)
+                }
+                start = end + 1
+            }
+        }
+        return true
+    }
+
     /**
      * Повний конвеєр для одного треку: завантажити сирий аудіо-потік ->
      * сконвертувати в mp3 (ffmpeg-kit) -> зберегти в публічну папку
@@ -60,20 +122,11 @@ object DownloadManager {
             rawFile = File(cacheDir, "raw_$timestamp.$rawExtension")
             mp3File = File(cacheDir, "converted_$timestamp.mp3")
 
-            // 1. Завантажуємо сирий аудіо-файл
+            // 1. Завантажуємо сирий аудіо-файл (частинами - див. коментар
+            // біля downloadInChunks щодо троттлінгу)
             onProgress("Завантажую: ${item.title}")
-            val request = Request.Builder()
-                .url(streamUrl)
-                .header("User-Agent", NETWORK_USER_AGENT)
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@withContext false
-                val body = response.body ?: return@withContext false
-                rawFile.outputStream().use { output ->
-                    body.byteStream().copyTo(output)
-                }
-            }
+            val downloadOk = downloadInChunks(streamUrl, rawFile)
+            if (!downloadOk) return@withContext false
 
             if (!rawFile.exists() || rawFile.length() == 0L) return@withContext false
 

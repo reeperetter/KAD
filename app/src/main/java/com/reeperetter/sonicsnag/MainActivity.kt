@@ -46,7 +46,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -412,17 +411,6 @@ fun SearchScreen() {
 
         Divider(modifier = Modifier.padding(vertical = 8.dp))
         Text(text = statusText, style = MaterialTheme.typography.bodySmall)
-
-        // Непомітний, але видимий підпис автора внизу екрана.
-        Text(
-            text = "by reeperetter",
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.Gray.copy(alpha = 0.6f),
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp)
-        )
     }
 }
 
