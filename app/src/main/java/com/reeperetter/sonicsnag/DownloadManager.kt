@@ -109,8 +109,15 @@ object DownloadManager {
         try {
             onProgress("Отримую аудіо-потік: ${item.title}")
             val audioStream = MusicRepository.getBestAudioStream(item.url)
-                ?: return@withContext false
-            val streamUrl = audioStream.content ?: return@withContext false
+            if (audioStream == null) {
+                onProgress("Не вдалось знайти аудіо-потік для: ${item.title}")
+                return@withContext false
+            }
+            val streamUrl = audioStream.content
+            if (streamUrl == null) {
+                onProgress("Порожнє посилання на потік для: ${item.title}")
+                return@withContext false
+            }
 
             val rawExtension = when (audioStream.format) {
                 org.schabi.newpipe.extractor.MediaFormat.M4A -> "m4a"
@@ -126,9 +133,15 @@ object DownloadManager {
             // біля downloadInChunks щодо троттлінгу)
             onProgress("Завантажую: ${item.title}")
             val downloadOk = downloadInChunks(streamUrl, rawFile)
-            if (!downloadOk) return@withContext false
+            if (!downloadOk) {
+                onProgress("Мережева помилка при завантаженні: ${item.title}")
+                return@withContext false
+            }
 
-            if (!rawFile.exists() || rawFile.length() == 0L) return@withContext false
+            if (!rawFile.exists() || rawFile.length() == 0L) {
+                onProgress("Завантажений файл порожній: ${item.title}")
+                return@withContext false
+            }
 
             // 2. Конвертуємо в mp3 через ffmpeg-kit (192 kbps, стерео)
             onProgress("Конвертую в mp3: ${item.title}")
@@ -137,15 +150,24 @@ object DownloadManager {
             )
 
             if (!ReturnCode.isSuccess(session.returnCode)) {
+                onProgress("ffmpeg не зміг сконвертувати: ${item.title} (код ${session.returnCode})")
                 return@withContext false
             }
-            if (!mp3File.exists() || mp3File.length() == 0L) return@withContext false
+            if (!mp3File.exists() || mp3File.length() == 0L) {
+                onProgress("Файл після конвертації порожній: ${item.title}")
+                return@withContext false
+            }
 
             // 3. Зберігаємо в публічну папку "Завантаження"
             onProgress("Зберігаю: ${item.title}")
             val fileName = sanitizeFileName(item.title) + ".mp3"
-            saveToPublicDownloads(context, mp3File, fileName)
+            val saved = saveToPublicDownloads(context, mp3File, fileName)
+            if (!saved) {
+                onProgress("Не вдалось зберегти файл: ${item.title}")
+            }
+            saved
         } catch (e: Exception) {
+            onProgress("Помилка (${e::class.simpleName}) для ${item.title}: ${e.message}")
             false
         } finally {
             rawFile?.delete()

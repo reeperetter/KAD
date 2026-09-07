@@ -174,19 +174,36 @@ fun SearchScreen() {
 
         scope.launch {
             var successCount = 0
+            val failures = mutableListOf<String>()
+
             indices.forEachIndexed { i, idx ->
                 val item = results[idx]
                 statusText = "Трек ${i + 1}/$total: ${item.title}"
+                var lastMessage = ""
                 val ok = DownloadManager.downloadTrack(context, item) { progressMessage ->
+                    lastMessage = progressMessage
                     statusText = "(${i + 1}/$total) $progressMessage"
                 }
-                if (ok) successCount++
+                if (ok) {
+                    successCount++
+                } else {
+                    failures.add("${item.title}: $lastMessage")
+                }
+
+                // Невелика пауза між треками - без неї часті запити один за
+                // одним до YouTube іноді призводять до того, що частина з
+                // них раптово відхиляється.
+                if (i < indices.lastIndex) {
+                    kotlinx.coroutines.delay(800)
+                }
             }
 
             statusText = if (successCount == total) {
                 "Готово! Збережено $successCount трек(ів) у папку \"Завантаження\"."
             } else {
-                "Завершено: $successCount із $total. Деякі треки не вдалося зберегти."
+                val shown = failures.take(3).joinToString(" | ")
+                val more = if (failures.size > 3) " (і ще ${failures.size - 3})" else ""
+                "Завершено: $successCount із $total. Причини: $shown$more"
             }
             isDownloading = false
         }
