@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.musicdownloader.app"
+    namespace = "com.reeperetter.sonicsnag"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.musicdownloader.app"
+        applicationId = "com.reeperetter.sonicsnag"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
@@ -31,6 +31,15 @@ android {
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("release")
+        }
+    }
+
+    // Перейменовуємо готовий файл збірки на SonicSnag-<тип>.apk замість
+    // стандартного app-debug.apk / app-release.apk
+    applicationVariants.all {
+        outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output.outputFileName = "SonicSnag-${name}.apk"
         }
     }
 

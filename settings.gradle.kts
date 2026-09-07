@@ -16,5 +16,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Music Downloader"
+rootProject.name = "SonicSnag"
 include(":app")
