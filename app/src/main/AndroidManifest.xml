@@ -13,6 +13,14 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
+    <!-- Потрібні для роботи Foreground Service під час завантаження -
+         без цього Android може зупинити завантаження, коли застосунок
+         згорнутий (перемкнулись на інший застосунок). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Потрібно для показу самого сповіщення про прогрес (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Потрібно на Android 11+, щоб застосунок мав право відкривати
          посилання (для кнопки "Відкрити на YouTube") - без цього система
          може приховати браузер від запиту через обмеження видимості
@@ -40,5 +48,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Сервіс, що виконує завантаження й конвертацію - Android не
+             зупиняє foreground-сервіси зі сповіщенням так само легко, як
+             звичайну згорнуту Activity. -->
+        <service
+            android:name=".DownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 </manifest>

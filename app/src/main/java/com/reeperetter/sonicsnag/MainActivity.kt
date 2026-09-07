@@ -1,6 +1,12 @@
 package com.reeperetter.sonicsnag
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
@@ -38,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -162,6 +169,40 @@ fun SearchScreen() {
         }
     }
 
+    // Дозвіл на сповіщення (Android 13+) - потрібен, щоб бачити прогрес
+    // завантаження, поки сервіс працює у фоні.
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* незалежно від відповіді - завантаження однаково запуститься,
+           просто без видимого сповіщення, якщо відмовлено */ }
+
+    fun ensureNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
+    // Слідкуємо за станом сервісу завантаження, поки екран видимий -
+    // сам сервіс продовжує працювати незалежно від того, дивиться хтось
+    // на екран чи ні (саме це вирішує проблему "ламається у фоні").
+    LaunchedEffect(Unit) {
+        launch {
+            DownloadService.statusFlow.collect { text ->
+                if (text.isNotBlank()) statusText = text
+            }
+        }
+        launch {
+            DownloadService.isRunningFlow.collect { running ->
+                isDownloading = running
+            }
+        }
+    }
+
     fun startDownload() {
         val indices = selected.indices.filter { selected.getOrElse(it) { false } }
         if (indices.isEmpty()) {
@@ -169,44 +210,9 @@ fun SearchScreen() {
             return
         }
 
-        isDownloading = true
-        val total = indices.size
-
-        scope.launch {
-            var successCount = 0
-            val failures = mutableListOf<String>()
-
-            indices.forEachIndexed { i, idx ->
-                val item = results[idx]
-                statusText = "Трек ${i + 1}/$total: ${item.title}"
-                var lastMessage = ""
-                val ok = DownloadManager.downloadTrack(context, item) { progressMessage ->
-                    lastMessage = progressMessage
-                    statusText = "(${i + 1}/$total) $progressMessage"
-                }
-                if (ok) {
-                    successCount++
-                } else {
-                    failures.add("${item.title}: $lastMessage")
-                }
-
-                // Невелика пауза між треками - без неї часті запити один за
-                // одним до YouTube іноді призводять до того, що частина з
-                // них раптово відхиляється.
-                if (i < indices.lastIndex) {
-                    kotlinx.coroutines.delay(800)
-                }
-            }
-
-            statusText = if (successCount == total) {
-                "Готово! Збережено $successCount трек(ів) у папку \"Завантаження\"."
-            } else {
-                val shown = failures.take(3).joinToString(" | ")
-                val more = if (failures.size > 3) " (і ще ${failures.size - 3})" else ""
-                "Завершено: $successCount із $total. Причини: $shown$more"
-            }
-            isDownloading = false
-        }
+        ensureNotificationPermission()
+        val tracksToDownload = indices.map { results[it] }
+        DownloadService.start(context, tracksToDownload)
     }
 
     fun togglePreview(index: Int, item: SearchResult) {
