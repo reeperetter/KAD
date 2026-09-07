@@ -92,6 +92,8 @@ fun SearchScreen() {
 
     var currentlyPlayingIndex by remember { mutableStateOf(-1) }
     var isBuffering by remember { mutableStateOf(false) }
+    var isDownloading by remember { mutableStateOf(false) }
+    val isBusy = isSearching || isDownloading
 
     // Один спільний ExoPlayer на весь екран - переінакшуємо джерело
     // при кожному новому натисканні "▶", а не створюємо новий програвач
@@ -157,6 +159,36 @@ fun SearchScreen() {
             } finally {
                 isSearching = false
             }
+        }
+    }
+
+    fun startDownload() {
+        val indices = selected.indices.filter { selected.getOrElse(it) { false } }
+        if (indices.isEmpty()) {
+            statusText = "Виберіть хоча б один трек!"
+            return
+        }
+
+        isDownloading = true
+        val total = indices.size
+
+        scope.launch {
+            var successCount = 0
+            indices.forEachIndexed { i, idx ->
+                val item = results[idx]
+                statusText = "Трек ${i + 1}/$total: ${item.title}"
+                val ok = DownloadManager.downloadTrack(context, item) { progressMessage ->
+                    statusText = "(${i + 1}/$total) $progressMessage"
+                }
+                if (ok) successCount++
+            }
+
+            statusText = if (successCount == total) {
+                "Готово! Збережено $successCount трек(ів) у папку \"Завантаження\"."
+            } else {
+                "Завершено: $successCount із $total. Деякі треки не вдалося зберегти."
+            }
+            isDownloading = false
         }
     }
 
@@ -231,7 +263,7 @@ fun SearchScreen() {
                     )
                 },
                 singleLine = true,
-                enabled = !isSearching,
+                enabled = !isBusy,
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier
                     .weight(1f)
@@ -243,7 +275,7 @@ fun SearchScreen() {
             Box {
                 OutlinedButton(
                     onClick = { limitMenuExpanded = true },
-                    enabled = !isSearching,
+                    enabled = !isBusy,
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.height(56.dp)
                 ) {
@@ -269,7 +301,7 @@ fun SearchScreen() {
 
             IconButton(
                 onClick = { runSearch() },
-                enabled = !isSearching,
+                enabled = !isBusy,
                 colors = IconButtonDefaults.iconButtonColors(
                     containerColor = DeepOrange,
                     contentColor = Color.White
@@ -351,6 +383,7 @@ fun SearchScreen() {
         Row(modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(
                 onClick = { for (i in selected.indices) selected[i] = true },
+                enabled = !isBusy,
                 modifier = Modifier.weight(1f)
             ) { Text("Все") }
 
@@ -358,13 +391,14 @@ fun SearchScreen() {
 
             OutlinedButton(
                 onClick = { for (i in selected.indices) selected[i] = false },
+                enabled = !isBusy,
                 modifier = Modifier.weight(1f)
             ) { Text("Скинути") }
         }
 
         Button(
-            onClick = { /* завантаження додамо у Фазі 4 */ },
-            enabled = selected.any { it },
+            onClick = { startDownload() },
+            enabled = selected.any { it } && !isBusy,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp)

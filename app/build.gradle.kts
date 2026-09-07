@@ -86,6 +86,11 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.4.1")
     implementation("androidx.media3:media3-common:1.4.1")
 
+    // ffmpeg-kit (аудіо-варіант, без відео-кодеків - менший розмір APK) -
+    // реальна конвертація в mp3, чого не можна було зробити на Android
+    // у Flet-версії без нативного бінарника.
+    implementation("com.arthenica:ffmpeg-kit-audio:6.0-2")
+
     // Для запуску пошуку у фоновому потоці, не блокуючи інтерфейс
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }

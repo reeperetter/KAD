@@ -47,14 +47,18 @@ object MusicRepository {
 
     /**
      * Дістає пряме посилання на найкращий доступний аудіо-потік для
-     * відтворення/завантаження. Аналог format="bestaudio" у yt-dlp.
+     * відтворення/завантаження. Аналог format="bestaudio[ext=m4a]/bestaudio"
+     * у yt-dlp - спершу шукаємо m4a (найширша сумісність), інакше беремо
+     * найкращий доступний за бітрейтом.
      */
     suspend fun getBestAudioStream(videoUrl: String): AudioStream? = withContext(Dispatchers.IO) {
         ensureInitialized()
 
         val streamInfo = StreamInfo.getInfo(ServiceList.YouTube, videoUrl)
-        streamInfo.audioStreams
-            .filter { it.content != null }
+        val candidates = streamInfo.audioStreams.filter { it.content != null }
+
+        candidates.filter { it.format == org.schabi.newpipe.extractor.MediaFormat.M4A }
             .maxByOrNull { it.averageBitrate }
+            ?: candidates.maxByOrNull { it.averageBitrate }
     }
 }
