@@ -12,10 +12,18 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 object DownloadManager {
 
-    private val client = OkHttpClient.Builder().build()
+    // Таймаути ловлять лише справжнє "зависання" з'єднання (немає нових
+    // даних довше вказаного часу) - вони НЕ обмежують загальний розмір чи
+    // тривалість файлу, тож довгі збірки якісно завантажуються.
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .writeTimeout(60, TimeUnit.SECONDS)
+        .build()
 
     private fun sanitizeFileName(name: String): String =
         name.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim().take(150).ifBlank { "track" }

@@ -34,6 +34,10 @@ object MusicRepository {
 
         items
             .filterIsInstance<StreamInfoItem>()
+            // Прибираємо тільки прямі трансляції (немає сенсу качати
+            // нескінченний потік) - довгі, але кінцеві записи (збірки,
+            // концерти) залишаємо, це навмисно.
+            .filter { it.duration >= 0 }
             .take(limit)
             .map { item ->
                 SearchResult(

@@ -96,10 +96,13 @@ dependencies {
     implementation("androidx.media3:media3-common:1.4.1")
 
     // ffmpeg-kit (аудіо-варіант, без відео-кодеків - менший розмір APK).
-    // Оригінальний com.arthenica:ffmpeg-kit-audio архівовано в квітні 2025,
-    // тому використовуємо активно підтримуваний форк з тим самим API
-    // (com.arthenica.ffmpegkit.* - код нижче лишається без змін).
-    implementation("dev.ffmpegkit-maintained:ffmpeg-kit-audio:6.0.3")
+    // Оригінальний com.arthenica:ffmpeg-kit-audio архівовано в квітні 2025.
+    // Використовуємо форк, спеціально перезібраний під вимогу Android щодо
+    // 16 КБ розміру сторінки пам'яті - старі нативні бібліотеки без цього
+    // перевирівнювання можуть падати з крахом на кожному виклику на нових
+    // пристроях/прошивках, що якраз і виглядає як стабільний крах на
+    // конвертації незалежно від файлу.
+    implementation("io.github.maxrave-dev:ffmpeg-kit-audio:6.0.1")
 
     // Для запуску пошуку у фоновому потоці, не блокуючи інтерфейс
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
